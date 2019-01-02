@@ -1,5 +1,7 @@
 package com.goldze.mvvmhabit.app;
 
+import android.content.SharedPreferences;
+
 import com.goldze.mvvmhabit.BuildConfig;
 import com.goldze.mvvmhabit.R;
 import com.goldze.mvvmhabit.ui.login.LoginActivity;

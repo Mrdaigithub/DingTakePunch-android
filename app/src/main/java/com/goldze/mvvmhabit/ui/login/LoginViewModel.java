@@ -1,15 +1,26 @@
 package com.goldze.mvvmhabit.ui.login;
 
 import android.app.Application;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.databinding.ObservableBoolean;
 import android.databinding.ObservableField;
 import android.databinding.ObservableInt;
+import android.databinding.ObservableList;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 
+import com.goldze.mvvmhabit.app.AppApplication;
+import com.goldze.mvvmhabit.entity.SpinnerItemData;
 import com.goldze.mvvmhabit.ui.main.DemoActivity;
+import com.goldze.mvvmhabit.utils.Constants;
+import com.goldze.mvvmhabit.utils.SharedPreferencesUtils;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Observable;
@@ -19,103 +30,73 @@ import me.goldze.mvvmhabit.base.BaseViewModel;
 import me.goldze.mvvmhabit.binding.command.BindingAction;
 import me.goldze.mvvmhabit.binding.command.BindingCommand;
 import me.goldze.mvvmhabit.binding.command.BindingConsumer;
+import me.goldze.mvvmhabit.binding.viewadapter.spinner.IKeyAndValue;
 import me.goldze.mvvmhabit.utils.RxUtils;
 import me.goldze.mvvmhabit.utils.ToastUtils;
+
+import static com.goldze.mvvmhabit.utils.Constants.DEVICE_ID_LIST;
 
 /**
  * Created by goldze on 2017/7/17.
  */
 
 public class LoginViewModel extends BaseViewModel {
-    //用户名的绑定
-    public ObservableField<String> userName = new ObservableField<>("");
-    //密码的绑定
-    public ObservableField<String> password = new ObservableField<>("");
-    //用户名清除按钮的显示隐藏绑定
-    public ObservableInt clearBtnVisibility = new ObservableInt();
-    //封装一个界面发生改变的观察者
-    public UIChangeObservable uc = new UIChangeObservable();
-
-    public class UIChangeObservable {
-        //密码开关观察者
-        public ObservableBoolean pSwitchObservable = new ObservableBoolean(false);
-    }
+    //设备ID的绑定
+    public ObservableField<String> deviceID = new ObservableField<>("");
+    public List<IKeyAndValue> deviceIDList;
 
     public LoginViewModel(@NonNull Application application) {
         super(application);
     }
 
-    //清除用户名的点击事件, 逻辑从View层转换到ViewModel层
-    public BindingCommand clearUserNameOnClickCommand = new BindingCommand(new BindingAction() {
+    @Override
+    public void onCreate() {
+        super.onCreate();
+
+        deviceIDList = new ArrayList<>();
+        for (String deviceID : DEVICE_ID_LIST) {
+            deviceIDList.add(new SpinnerItemData(deviceID, deviceID));
+        }
+
+        deviceID.set(SharedPreferencesUtils.getInstance().get(getApplication().getBaseContext(), "deviceID", DEVICE_ID_LIST[0]));
+    }
+
+    //设备ID选择的监听
+    public BindingCommand<IKeyAndValue> onDeviceIDSelectorCommand = new BindingCommand<>(new BindingConsumer<IKeyAndValue>() {
         @Override
-        public void call() {
-            userName.set("");
+        public void call(IKeyAndValue iKeyAndValue) {
+            deviceID.set(iKeyAndValue.getValue());
         }
     });
-    //密码显示开关  (你可以尝试着狂按这个按钮,会发现它有防多次点击的功能)
-    public BindingCommand passwordShowSwitchOnClickCommand = new BindingCommand(new BindingAction() {
-        @Override
-        public void call() {
-            //让观察者的数据改变,逻辑从ViewModel层转到View层，在View层的监听则会被调用
-            uc.pSwitchObservable.set(!uc.pSwitchObservable.get());
-        }
-    });
-    //用户名输入框焦点改变的回调事件
-    public BindingCommand<Boolean> onFocusChangeCommand = new BindingCommand<>(new BindingConsumer<Boolean>() {
-        @Override
-        public void call(Boolean hasFocus) {
-            if (hasFocus) {
-                clearBtnVisibility.set(View.VISIBLE);
-            } else {
-                clearBtnVisibility.set(View.INVISIBLE);
-            }
-        }
-    });
+
     //登录按钮的点击事件
     public BindingCommand loginOnClickCommand = new BindingCommand(new BindingAction() {
         @Override
         public void call() {
-            login();
+            Observable.just("")
+                    .compose(RxUtils.schedulersTransformer()) //线程调度
+                    .doOnSubscribe(new Consumer<Disposable>() {
+                        @Override
+                        public void accept(Disposable disposable) throws Exception {
+                            SharedPreferencesUtils.getInstance().save("deviceID", deviceID.get());
+                        }
+                    })
+                    .subscribe(new Consumer<Object>() {
+                        @Override
+                        public void accept(Object o) throws Exception {
+                            //进入DemoActivity页面
+                            startActivity(DemoActivity.class);
+                            //关闭页面
+                            finish();
+                        }
+                    });
         }
     });
-
-    /**
-     * 网络模拟一个登陆操作
-     **/
-    private void login() {
-        if (TextUtils.isEmpty(userName.get())) {
-            ToastUtils.showShort("请输入账号！");
-            return;
-        }
-        if (TextUtils.isEmpty(password.get())) {
-            ToastUtils.showShort("请输入密码！");
-            return;
-        }
-        //RaJava模拟一个延迟操作
-        Observable.just("")
-                .delay(3, TimeUnit.SECONDS) //延迟3秒
-                .compose(RxUtils.bindToLifecycle(getLifecycleProvider()))//界面关闭自动取消
-                .compose(RxUtils.schedulersTransformer()) //线程调度
-                .doOnSubscribe(new Consumer<Disposable>() {
-                    @Override
-                    public void accept(Disposable disposable) throws Exception {
-                        showDialog();
-                    }
-                })
-                .subscribe(new Consumer<Object>() {
-                    @Override
-                    public void accept(Object o) throws Exception {
-                        dismissDialog();
-                        //进入DemoActivity页面
-                        startActivity(DemoActivity.class);
-                        //关闭页面
-                        finish();
-                    }
-                });
-    }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
+        deviceIDList.clear();
+        deviceIDList = null;
     }
 }
