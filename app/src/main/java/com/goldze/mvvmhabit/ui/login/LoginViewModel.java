@@ -1,38 +1,29 @@
 package com.goldze.mvvmhabit.ui.login;
 
 import android.app.Application;
-import android.content.Context;
-import android.content.SharedPreferences;
-import android.databinding.ObservableBoolean;
 import android.databinding.ObservableField;
-import android.databinding.ObservableInt;
-import android.databinding.ObservableList;
 import android.support.annotation.NonNull;
-import android.text.TextUtils;
-import android.util.Log;
-import android.view.View;
 
-import com.goldze.mvvmhabit.app.AppApplication;
 import com.goldze.mvvmhabit.entity.SpinnerItemData;
 import com.goldze.mvvmhabit.ui.main.DemoActivity;
-import com.goldze.mvvmhabit.utils.Constants;
 import com.goldze.mvvmhabit.utils.SharedPreferencesUtils;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Observable;
+import io.reactivex.Observer;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
+import io.reactivex.functions.Function;
 import me.goldze.mvvmhabit.base.BaseViewModel;
 import me.goldze.mvvmhabit.binding.command.BindingAction;
 import me.goldze.mvvmhabit.binding.command.BindingCommand;
 import me.goldze.mvvmhabit.binding.command.BindingConsumer;
 import me.goldze.mvvmhabit.binding.viewadapter.spinner.IKeyAndValue;
+import me.goldze.mvvmhabit.utils.KLog;
 import me.goldze.mvvmhabit.utils.RxUtils;
-import me.goldze.mvvmhabit.utils.ToastUtils;
+import me.goldze.mvvmhabit.utils.SPUtils;
 
 import static com.goldze.mvvmhabit.utils.Constants.DEVICE_ID_LIST;
 
@@ -41,6 +32,7 @@ import static com.goldze.mvvmhabit.utils.Constants.DEVICE_ID_LIST;
  */
 
 public class LoginViewModel extends BaseViewModel {
+    private SPUtils mSPUtils = SPUtils.getInstance();
     //设备ID的绑定
     public ObservableField<String> deviceID = new ObservableField<>("");
     public List<IKeyAndValue> deviceIDList;
@@ -54,11 +46,29 @@ public class LoginViewModel extends BaseViewModel {
         super.onCreate();
 
         deviceIDList = new ArrayList<>();
-        for (String deviceID : DEVICE_ID_LIST) {
-            deviceIDList.add(new SpinnerItemData(deviceID, deviceID));
-        }
+        Observable.fromArray(DEVICE_ID_LIST)
+                .compose(RxUtils.schedulersTransformer())
+                .subscribe(new Observer<String>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
 
-        deviceID.set(SharedPreferencesUtils.getInstance().get(getApplication().getBaseContext(), "deviceID", DEVICE_ID_LIST[0]));
+                    }
+
+                    @Override
+                    public void onNext(String deviceID) {
+                        deviceIDList.add(new SpinnerItemData(deviceID, deviceID));
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        deviceID.set(mSPUtils.getString("deviceID", DEVICE_ID_LIST[0]));
+                    }
+                });
     }
 
     //设备ID选择的监听
@@ -78,7 +88,7 @@ public class LoginViewModel extends BaseViewModel {
                     .doOnSubscribe(new Consumer<Disposable>() {
                         @Override
                         public void accept(Disposable disposable) throws Exception {
-                            SharedPreferencesUtils.getInstance().save("deviceID", deviceID.get());
+                            mSPUtils.put("deviceID", deviceID.get());
                         }
                     })
                     .subscribe(new Consumer<Object>() {
@@ -86,8 +96,6 @@ public class LoginViewModel extends BaseViewModel {
                         public void accept(Object o) throws Exception {
                             //进入DemoActivity页面
                             startActivity(DemoActivity.class);
-                            //关闭页面
-                            finish();
                         }
                     });
         }

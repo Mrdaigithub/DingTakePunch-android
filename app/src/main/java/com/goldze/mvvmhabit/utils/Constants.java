@@ -12,5 +12,5 @@ public class Constants {
         return INSTANCE;
     }
 
-    public static final String[] DEVICE_ID_LIST = {"111", "222", "333", "444"};
+    public static final String[] DEVICE_ID_LIST = {"51ac8c03", "356BCHTSQ4TD", "FUQKHY5TQGLNC6DM"};
 }
